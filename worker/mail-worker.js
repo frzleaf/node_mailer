@@ -1,46 +1,60 @@
-let NodeMailer = require('nodemailer');
+const events = require('events');
 
 
 class MailWorker {
 
-    constructor(mailConfig) {
-        const transporter = NodeMailer.createTransport({
-            host: mailConfig.host,
-            port: mailConfig.port,
-            secure: false, // secure:true for port 465, secure:false for port 587
-            auth: {
-                user: mailConfig.user,
-                pass: mailConfig.password
-            },
-            tls: {rejectUnauthorized: false}
-        });
-
-        this.sendByName = mailConfig.send_by_name || 'NoReply';
-        this.sendByEmail = mailConfig.send_by_email || mailConfig.user;
-        this.mailer = transporter;
+    constructor(mailSender) {
+        this.mailSender = mailSender;
+        events.EventEmitter.call(this);
     }
 
+    work(data, callBack) {
+        let sendingObject = {};
+        if (data instanceof Object) {
+            sendingObject = data;
 
-    async sendMailTo(to, data, settings = null) {
-        console.log(to);
-        let mailOptions = {
-            from: `"${(settings && settings.send_by_name) || this.sendByName}" <${(settings && settings.send_by_email) || this.sendByEmail}>`,
-            to: to,
-            subject: data.subject,
-            html: data.body
-        };
+        } else {
+            const str = data.toString('utf8');
 
-        return await this.mailer.sendMail(mailOptions);
-    }
+            if (!str) {
+                console.log('[Q] Empty input data');
+                callBack('success');
+                return;
+            }
+
+            let sendingObject = null;
+            console.log(str[1]);
+            try {
+                if (/^[\[\{ ].+/.test(str)) {
+                    sendingObject = JSON.parse(str);
+
+                } else {
+                    // PHP serialize
+                    let convertedStr = str.slice(str.indexOf('"') + 1);
+                    convertedStr = convertedStr.slice(0, convertedStr.length - 2);
+                    sendingObject = JSON.parse(convertedStr);
+                }
+            } catch (e) {
+            }
+
+            if (_.isEmpty(sendingObject)) {
+                console.log(`[Q] Invalid json data: ${str}`);
+                callBack('success'); // Delete job
+                return;
+            }
+        }
 
 
-    getName() {
-        return 'ico_mail';
-    }
-
-
-    async work(data) {
-        return await this.sendMailTo(data.to, data.data, data.settings)
+        this.mailSender
+            .send(sendingObject)
+            .then(res => {
+                callBack('success');
+            })
+            .catch(err => {
+                console.log('[Q] Send mail failed: ' + err.message);
+                // callBack('success');
+                callBack('burry');
+            })
     }
 }
 

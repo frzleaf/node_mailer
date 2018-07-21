@@ -1,13 +1,19 @@
-require(__dirname + '/config/loader');
-
-/** @type {Queue} */
-const Queue = require(__dirname + '/services/queue');
+const config = require(__dirname + '/config/config');
 
 const MailWorker = require(__dirname + '/worker/mail-worker');
-console.log(_config.mail);
-workers = [
-    new MailWorker(_config.mail)
-];
+const MailSender = require(__dirname + '/worker/mail-sender');
+const TubeConsumer = require(__dirname + '/worker/tube-consumer');
 
-const q = new Queue(_config.queue, workers);
-q.run();
+let mailSender = new MailSender(config.mail);
+let mailWorker = new MailWorker(mailSender);
+
+const consumerOptions = Object.assign(config.queue, {
+    handler: mailWorker,
+    ignoreDefault: true,
+    id: 'Mailer'
+});
+
+let queueConsumer = new TubeConsumer(consumerOptions)
+queueConsumer.on('info', data => {console.log(data);})
+
+queueConsumer.start([config.queue.mail_tube]);

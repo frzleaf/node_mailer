@@ -3,7 +3,8 @@ require('dotenv').load(__dirname + '/../.env');
 const config = {
     queue: {
         host: process.env.BEANSTALK_HOST || 'localhost',
-        port: process.env.BEANSTALK_PORT || 11300
+        port: process.env.BEANSTALK_PORT || 11300,
+        mail_tube: process.env.BEANSTALK_MAIL_TUBE || 'mail_tube'
     },
     mail: {
         host: process.env.MAIL_HOST || 'localhost',
